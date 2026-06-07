@@ -1,0 +1,64 @@
+# docker-compose.yml — оркестрация запуска модуля управления рисками
+#
+# Использование:
+#   docker compose up jupyter      # запустить Jupyter Lab на http://localhost:8888
+#   docker compose run --rm tests  # прогнать дымовые тесты
+#   docker compose run --rm demo   # запустить демонстрационный скрипт
+#
+# Все сервисы используют один и тот же образ; кэш данных монтируется томом,
+# чтобы загруженные котировки сохранялись между перезапусками контейнеров.
+
+services:
+
+  # Сервис по умолчанию: Jupyter Lab для интерактивной работы с ноутбуками
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: crypto-risk:latest
+    container_name: crypto-risk-jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./data_cache:/app/data_cache
+      - ./notebooks:/app/notebooks
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MPLBACKEND=Agg
+    restart: unless-stopped
+
+  # Прогон дымовых тестов
+  tests:
+    image: crypto-risk:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crypto-risk-tests
+    command: ["python", "tests/test_smoke.py"]
+    volumes:
+      - ./data_cache:/app/data_cache
+    profiles: ["cli"]
+
+  # Демонстрационный сценарий
+  demo:
+    image: crypto-risk:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crypto-risk-demo
+    command: ["python", "examples/demo.py"]
+    volumes:
+      - ./data_cache:/app/data_cache
+    profiles: ["cli"]
+
+  # Перестроение ноутбука (без выполнения)
+  rebuild-notebook:
+    image: crypto-risk:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crypto-risk-build-nb
+    command: ["python", "build_notebook.py"]
+    volumes:
+      - ./notebooks:/app/notebooks
+    profiles: ["cli"]
